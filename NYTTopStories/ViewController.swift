@@ -10,12 +10,14 @@ import UIKit
 
 class ViewController: UIViewController {
     
-    @IBOutlet weak var tableView: UITableView!
+    var tableView: UITableView = UITableView(frame: .zero,
+                                             style: .grouped)
     
     lazy var activityIndicator: UIActivityIndicatorView = UIActivityIndicatorView(style: .large)
     
     var topStory: TopStory?
     var diffableDataSource: UITableViewDiffableDataSource<Int, TopStoryResult>?
+    static let reuseId: String = "topStoryCell"
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,20 +45,30 @@ class ViewController: UIViewController {
     }
     
     private func setupTableView() {
-        //tableView.delegate = self
+        view.addSubview(tableView)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+        
+            tableView.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
+            tableView.topAnchor.constraint(equalTo: self.view.topAnchor, constant: 8),
+            tableView.bottomAnchor.constraint(equalTo: self.view.bottomAnchor)
+        ])
+        
+        
+        tableView.estimatedRowHeight = 300
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.separatorStyle = .none
         tableView.backgroundColor = UIColor(white: 100/255, alpha: 0.5)
-        tableView.register(UITableViewCell.self,
-                           forCellReuseIdentifier: "cell")
+        tableView.register(TopStoryTableViewCell.self,
+                           forCellReuseIdentifier: ViewController.reuseId)
+
         diffableDataSource = UITableViewDiffableDataSource(tableView: tableView, cellProvider: { tableView, indexPath, topStoryResult in
-              var cell = tableView.dequeueReusableCell(
-                  withIdentifier: "cell",
-                  for: indexPath
-              )
-            cell = UITableViewCell(style: .subtitle,
-                                   reuseIdentifier: "cell")
-            cell.textLabel?.text = topStoryResult.title ?? "Sample title"
-            cell.detailTextLabel?.text = topStoryResult.byline ?? "Sample author"
-              return cell
+            let cell: TopStoryTableViewCell = tableView.dequeueReusableCell(withIdentifier: ViewController.reuseId,
+                                                                            for: indexPath) as! TopStoryTableViewCell
+            
+            cell.topStoryResult = topStoryResult
+            return cell
           })
     }
     
@@ -147,7 +159,7 @@ class ViewController: UIViewController {
 
 extension ViewController: UITableViewDelegate {
     
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 100
-    }
+//    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+//        return 100
+//    }
 }
