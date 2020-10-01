@@ -109,7 +109,6 @@ class ViewController: UIViewController {
             if let dataRecvd = data {
                 self.topStory = self.loadData(data: dataRecvd)
                 DispatchQueue.main.async {
-                    sleep(5)
                     self.activityIndicator.stopAnimating()
                     self.activityIndicator.isHidden = true
                     self.tableView.backgroundColor = UIColor.white
