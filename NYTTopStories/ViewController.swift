@@ -10,6 +10,11 @@ import UIKit
 
 class ViewController: UIViewController {
     
+    enum SomeError: Error {
+        case badURL
+        case badResponse
+    }
+    
     var tableView: UITableView = UITableView(frame: .zero,
                                              style: .grouped)
     
@@ -28,7 +33,22 @@ class ViewController: UIViewController {
         view.addSubview(activityIndicator)
         view.bringSubviewToFront(activityIndicator)
         
-        makeNetworkRequest()
+        makeNetworkRequest { [weak self] topStory, error in
+            if let e = error {
+                print(e.localizedDescription)
+                return
+            }
+            
+            if let story = topStory {
+                self?.topStory = story
+               DispatchQueue.main.async {
+                   self?.activityIndicator.stopAnimating()
+                   self?.activityIndicator.isHidden = true
+                   self?.tableView.backgroundColor = UIColor.white
+                   self?.buildAndApplySnapshot()
+               }
+            }
+        }
     }
     
     override func viewDidLayoutSubviews() {
@@ -84,52 +104,46 @@ class ViewController: UIViewController {
         diffableDataSource?.apply(snapshot, animatingDifferences: true)
     }
 
-    private func makeNetworkRequest() {
+    private func makeNetworkRequest(completion: @escaping (TopStory?, Error?) -> ()) {
         
-        let domain = "https://api.nytimes.com/svc/topstories/v2/"
-        let sectionName = "science"
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "api.nytimes.com"
         
-        let components: [String: String] = ["domain": domain,
-                                           "sectionName": sectionName,
-                                           "key": accessToken]
-        guard let fullURLStr = formFullURL(urlComponents: components),
-            let url = URL(string: fullURLStr) else
-            { return }
-        
-        var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "GET"
-        let task = URLSession.shared.dataTask(with: urlRequest) { (data, response, error) in
-            
-            // Check if Error took place
-            if let error = error {
-                print("Error took place \(error)")
-                return
-            }
-            
-            if let dataRecvd = data {
-                self.topStory = self.loadData(data: dataRecvd)
-                DispatchQueue.main.async {
-                    self.activityIndicator.stopAnimating()
-                    self.activityIndicator.isHidden = true
-                    self.tableView.backgroundColor = UIColor.white
-                    self.buildAndApplySnapshot()
-                }
-            }
-            
+        func formRestOfPath(_ strPath: String, _ sectionName: String) -> String  {
+            return "\(strPath)\(sectionName).json"
         }
-        task.resume()
-    }
-    
-    private func formFullURL(urlComponents: [String: String]?) -> String? {
+        components.percentEncodedPath = formRestOfPath("/svc/topstories/v2/",
+                                                       "science")
+        let queryItems = [URLQueryItem(name: "api-key", value: accessToken)]
+        components.queryItems = queryItems
         
-        guard let components: [String: String] = urlComponents,
-            let domain: String = components["domain"],
-            let section: String = components["sectionName"],
-            let key = components["key"] else {return ""}
+        if let url = components.url {
+            var urlRequest = URLRequest(url: url)
+            urlRequest.httpMethod = "GET"
+            let task = URLSession.shared.dataTask(with: urlRequest) {[weak self] (data, response, error) in
+                
+                // Check if Error took place
+                if let e = error {
+                    print("Error took place \(e)")
+                    completion(nil, e)
+                    return
+                }
+                
+                if let storyData = data, let story = self?.loadData(data: storyData) {
+                    if let _ = story.results {
+                        completion(story, nil)
+                    } else {
+                        completion(nil,SomeError.badResponse)
+                    }
+                }
+                
+            }
+            task.resume()
+        } else {
+            completion(nil, SomeError.badURL)
+        }
         
-        let fullURL: String = domain + section + ".json?api-key=" + key
-        
-        return fullURL
     }
     
     private func decode(data: Data) throws -> TopStory? {
@@ -162,3 +176,4 @@ extension ViewController: UITableViewDelegate {
 //        return 100
 //    }
 }
+
